@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
   Compass, 
-  Search, 
   Sparkles, 
   ChevronRight, 
   Bookmark, 
@@ -11,24 +10,67 @@ import {
   Layers,
   ArrowUpRight
 } from 'lucide-react';
+import SurahList from './components/SurahList';
+import QiblaCompass from './components/QiblaCompass';
+
+// Memoized featured card component
+const FeaturedSurahCard = React.memo(function FeaturedSurahCard({ surah, onClick }) {
+  return (
+    <motion.div
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className="p-4 sm:p-5 rounded-2xl bg-white/85 border border-gold/25 shadow-sm hover:border-gold transition-[border-color,box-shadow] cursor-pointer flex items-center justify-between gap-3 min-h-[95px] will-change-transform"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-10 h-10 rounded-xl bg-gold/15 text-gold-dark font-extrabold flex items-center justify-center text-xs flex-shrink-0">
+          {surah.number}
+        </div>
+        <div className="min-w-0">
+          <h4 className="font-bold text-sm sm:text-base text-earth-text leading-tight truncate">
+            {surah.name}
+          </h4>
+          <p className="text-[11px] sm:text-xs text-earth-muted mt-0.5 leading-tight truncate">
+            {surah.english} • {surah.ayahs} Ayahs
+          </p>
+        </div>
+      </div>
+      <span className="font-arabic text-xl sm:text-2xl font-bold text-earth-text flex-shrink-0 pl-2">
+        {surah.arabic}
+      </span>
+    </motion.div>
+  );
+});
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { id: 'home', label: 'Home', icon: BookOpen },
     { id: 'surah', label: 'Surahs', icon: Layers },
     { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
     { id: 'audio', label: 'Audio', icon: Headphones },
     { id: 'compass', label: 'Qibla', icon: Compass },
-  ];
+  ], []);
+
+  const featuredSurahs = useMemo(() => [
+    { number: 1, name: "Al-Fatihah", english: "The Opening", ayahs: 7, arabic: "الفاتحة" },
+    { number: 36, name: "Yaseen", english: "Ya-Seen", ayahs: 83, arabic: "يس" },
+    { number: 55, name: "Ar-Rahman", english: "The Beneficent", ayahs: 78, arabic: "الرحمن" },
+    { number: 67, name: "Al-Mulk", english: "The Sovereignty", ayahs: 30, arabic: "الملك" },
+  ], []);
+
+  const handleTabSwitch = useCallback((id) => {
+    setActiveTab(id);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-cream text-earth-text flex flex-col justify-between selection:bg-gold/30 antialiased">
+    <div className="min-h-screen bg-cream text-earth-text flex flex-col justify-between selection:bg-gold/30 antialiased overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="w-full border-b border-gold/20 backdrop-blur-md bg-cream/90 sticky top-0 z-50">
-        <div className="w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-12 2xl:px-16 py-3.5 sm:py-4 flex items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+      <header className="w-full border-b border-gold/20 backdrop-blur-md bg-cream/90 sticky top-0 z-40">
+        <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-10 py-3 sm:py-4 flex items-center justify-between gap-3">
+          
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0 cursor-pointer" onClick={() => handleTabSwitch('home')}>
             <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center text-white shadow-md shadow-gold/20 flex-shrink-0">
               <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
@@ -40,58 +82,64 @@ export default function App() {
             </div>
           </div>
 
-          {/* Navigation Links for Large Tablets & Desktops (lg breakpoint taake 768px tablet par squeeze na ho) */}
-          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 bg-cream-dark/60 p-1.5 rounded-2xl border border-gold/20">
+          {/* Desktop & Tablet Navigation with Animated Spring Indicator */}
+          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 bg-cream-dark/60 p-1.5 rounded-2xl border border-gold/20 relative">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2 px-3.5 xl:px-4 py-2 rounded-xl text-xs xl:text-sm font-bold transition-all cursor-pointer ${
-                    isActive 
-                      ? 'bg-white text-gold-dark shadow-sm border border-gold/30' 
-                      : 'text-earth-muted hover:text-earth-text hover:bg-white/40'
+                  onClick={() => handleTabSwitch(item.id)}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs xl:text-sm font-bold transition-colors cursor-pointer z-10 ${
+                    isActive ? 'text-gold-dark' : 'text-earth-muted hover:text-earth-text'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <Icon className="w-4 h-4 z-10" />
+                  <span className="z-10">{item.label}</span>
+
+                  {isActive && (
+                    <motion.div
+                      layoutId="desktopActivePill"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      className="absolute inset-0 bg-white rounded-xl shadow-sm border border-gold/30 z-0"
+                    />
+                  )}
                 </button>
               );
             })}
           </nav>
 
-          {/* Qibla Direction Button */}
-          <button 
-            onClick={() => setActiveTab('compass')}
-            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gold/15 hover:bg-gold/25 text-gold-dark font-bold text-xs sm:text-sm border border-gold/30 transition-all cursor-pointer shadow-sm flex-shrink-0"
-          >
-            <Compass className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-            <span className="hidden sm:inline">Qibla Direction</span>
-            <span className="sm:hidden">Qibla</span>
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button 
+              onClick={() => handleTabSwitch('compass')}
+              className="flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gold/15 hover:bg-gold/25 text-gold-dark font-bold text-xs sm:text-sm border border-gold/30 transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <Compass className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <span className="hidden sm:inline">Qibla Direction</span>
+              <span className="sm:hidden">Qibla</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main Fluid Container (Mobile ke liye pb-24 taake bottom dock content ko na chupaye) */}
-      <main className="flex-1 w-full max-w-[2200px] mx-auto px-4 sm:px-6 md:px-8 lg:px-12 2xl:px-16 py-6 sm:py-8 lg:py-10 pb-28 md:pb-12">
+      {/* Main Container */}
+      <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 pb-28 lg:pb-12">
         <AnimatePresence mode="wait">
-          {activeTab !== 'compass' ? (
+          {activeTab === 'home' && (
             <motion.div
-              key="home-grid"
-              initial={{ opacity: 0, y: 15 }}
+              key="home"
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.35, ease: "easeOut" }}
-              className="space-y-6 sm:space-y-8"
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              className="space-y-6 sm:space-y-8 lg:space-y-10"
             >
-              {/* Responsive Hero Section */}
+              {/* Hero Banner Grid */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-stretch">
-                {/* Last Read Banner */}
-                <div className="md:col-span-7 xl:col-span-8 relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#f5ede1] via-[#f9f3ea] to-[#eeddc7] border border-gold/30 p-6 sm:p-8 xl:p-10 shadow-lg shadow-gold/5 flex flex-col justify-between">
+                <div className="md:col-span-7 xl:col-span-8 relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#f5ede1] via-[#f9f3ea] to-[#eeddc7] border border-gold/30 p-6 sm:p-8 xl:p-10 shadow-lg shadow-gold/5 flex flex-col justify-between min-h-[220px]">
                   <div className="absolute right-4 sm:right-8 -bottom-8 opacity-10 pointer-events-none hidden md:block">
-                    <BookOpen className="w-56 h-56 xl:w-72 xl:h-72 text-gold-dark" />
+                    <BookOpen className="w-64 h-64 xl:w-80 xl:h-80 text-gold-dark" />
                   </div>
 
                   <div className="relative z-10 space-y-3 sm:space-y-4">
@@ -103,66 +151,62 @@ export default function App() {
                         Surah Al-Kahf
                       </h2>
                       <p className="text-xs sm:text-sm xl:text-base text-earth-muted mt-2 max-w-xl">
-                        Ayah No. 11 • A source of light from one Friday to the next.
+                        Ayah No. 11 • A divine light guiding from one Friday to the next.
                       </p>
                     </div>
                   </div>
 
                   <div className="relative z-10 pt-6 flex flex-wrap items-center gap-3 sm:gap-4">
-                    <button className="px-5 sm:px-6 py-3 sm:py-3.5 rounded-2xl bg-gold hover:bg-gold-dark text-white font-bold text-xs sm:text-sm shadow-md shadow-gold/25 transition-all flex items-center gap-2 cursor-pointer">
-                      Resume Reading <ChevronRight className="w-4 h-4" />
+                    <button 
+                      onClick={() => handleTabSwitch('surah')}
+                      className="px-5 sm:px-6 py-3 sm:py-3.5 rounded-2xl bg-gold hover:bg-gold-dark text-white font-bold text-xs sm:text-sm shadow-md shadow-gold/25 transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      Browse Surahs <ChevronRight className="w-4 h-4" />
                     </button>
-                    <span className="text-xs sm:text-sm font-semibold text-earth-muted">
+                    <span className="text-xs font-semibold text-earth-muted">
                       110 Ayahs • Makkiyah
                     </span>
                   </div>
                 </div>
 
-                {/* Ayat of the Day Card */}
-                <div className="md:col-span-5 xl:col-span-4 rounded-3xl bg-white/75 border border-gold/25 p-6 sm:p-8 xl:p-10 flex flex-col justify-between shadow-sm">
+                <div className="md:col-span-5 xl:col-span-4 rounded-3xl bg-white/75 border border-gold/25 p-6 sm:p-8 xl:p-10 flex flex-col justify-between shadow-sm min-h-[220px]">
                   <div className="space-y-3">
                     <span className="text-[11px] sm:text-xs uppercase tracking-widest font-mono text-gold-dark font-bold">Daily Insight</span>
                     <h3 className="text-lg sm:text-xl xl:text-2xl font-bold text-earth-text">Ayat of the Day</h3>
                     <p className="text-xs sm:text-sm xl:text-base text-earth-muted leading-relaxed italic">
                       "Indeed, with hardship [will be] ease."
                     </p>
-                    <p className="text-xs sm:text-sm font-semibold text-gold-dark">— Surah Ash-Sharh (94:6)</p>
+                    <p className="text-xs font-semibold text-gold-dark">— Surah Ash-Sharh (94:6)</p>
                   </div>
 
                   <div className="pt-5 border-t border-gold/15 flex items-center justify-between">
                     <span className="text-xs sm:text-sm text-earth-muted font-medium">Ready to explore more?</span>
-                    <button className="flex items-center gap-1 text-xs sm:text-sm font-bold text-gold-dark hover:text-earth-text transition-colors">
+                    <button 
+                      onClick={() => handleTabSwitch('surah')}
+                      className="flex items-center gap-1 text-xs sm:text-sm font-bold text-gold-dark hover:text-earth-text transition-colors cursor-pointer"
+                    >
                       Explore <ArrowUpRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Universal Search Bar */}
-              <div className="relative w-full">
-                <Search className="w-5 h-5 text-earth-muted absolute left-5 top-1/2 -translate-y-1/2" />
-                <input 
-                  type="text" 
-                  placeholder="Search Surah by name, number, or translation..."
-                  className="w-full pl-14 pr-6 py-3.5 sm:py-4 xl:py-5 rounded-2xl bg-white/80 border border-gold/30 text-sm sm:text-base xl:text-lg text-earth-text placeholder-earth-muted/80 outline-none focus:border-gold focus:ring-4 focus:ring-gold/10 shadow-sm transition-all"
-                />
-              </div>
-
-              {/* Wide Responsive Action Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 xl:gap-6">
+              {/* Action Category Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 xl:gap-6">
                 {[
-                  { title: 'Surah Index', count: '114 Surahs', icon: Layers },
-                  { title: 'Juz / Paras', count: '30 Parts', icon: BookOpen },
-                  { title: 'Saved Bookmarks', count: 'Saved Verses', icon: Bookmark },
-                  { title: 'Tilawat Reciters', count: 'Audio Library', icon: Headphones },
+                  { title: 'Surah Index', count: '114 Surahs', icon: Layers, tab: 'surah' },
+                  { title: 'Juz / Paras', count: '30 Parts', icon: BookOpen, tab: 'surah' },
+                  { title: 'Saved Bookmarks', count: 'Saved Verses', icon: Bookmark, tab: 'bookmarks' },
+                  { title: 'Tilawat Reciters', count: 'Audio Library', icon: Headphones, tab: 'audio' },
                 ].map((item) => {
                   const ItemIcon = item.icon;
                   return (
                     <motion.div 
                       key={item.title}
-                      whileHover={{ y: -3, scale: 1.01 }}
+                      whileHover={{ y: -4, scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-4 sm:p-6 rounded-2xl bg-white/80 border border-gold/25 shadow-sm hover:shadow-md hover:border-gold transition-all cursor-pointer flex flex-col justify-between min-h-[110px] sm:min-h-[140px]"
+                      onClick={() => handleTabSwitch(item.tab)}
+                      className="p-5 sm:p-6 rounded-2xl bg-white/80 border border-gold/25 shadow-sm hover:shadow-md hover:border-gold transition-[border-color,box-shadow] cursor-pointer flex flex-col justify-between min-h-[120px] sm:min-h-[145px] will-change-transform"
                     >
                       <div className="w-10 h-10 xl:w-12 xl:h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold-dark mb-3">
                         <ItemIcon className="w-5 h-5 xl:w-6 xl:h-6" />
@@ -175,49 +219,109 @@ export default function App() {
                   );
                 })}
               </div>
+
+              {/* Frequently Recited Surahs */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg sm:text-2xl font-black text-earth-text tracking-tight">Frequently Recited Surahs</h3>
+                    <p className="text-xs sm:text-sm text-earth-muted">Quick access to essential daily recitations.</p>
+                  </div>
+                  <button 
+                    onClick={() => handleTabSwitch('surah')}
+                    className="flex items-center gap-1 text-xs sm:text-sm font-bold text-gold-dark hover:text-earth-text transition-colors cursor-pointer"
+                  >
+                    View All 114 <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {featuredSurahs.map((surah) => (
+                    <FeaturedSurahCard
+                      key={surah.number}
+                      surah={surah}
+                      onClick={() => handleTabSwitch('surah')}
+                    />
+                  ))}
+                </div>
+              </div>
             </motion.div>
-          ) : (
+          )}
+
+          {activeTab === 'surah' && (
             <motion.div
-              key="compass-view"
+              key="surah"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl sm:text-3xl font-extrabold text-earth-text">Surah Index</h2>
+                <span className="text-xs sm:text-sm font-semibold text-earth-muted font-mono">114 Chapters</span>
+              </div>
+              <SurahList />
+            </motion.div>
+          )}
+
+          {activeTab === 'compass' && (
+            <motion.div
+              key="compass"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              className="py-16 text-center space-y-4 max-w-xl mx-auto"
+              transition={{ duration: 0.28, ease: "easeOut" }}
             >
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-gold/15 flex items-center justify-center text-gold-dark mb-4">
-                <Compass className="w-10 h-10 animate-spin-slow" />
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-earth-text">Qibla Direction Compass</h2>
-              <p className="text-sm text-earth-muted">
-                Geolocation coordinates aur device sensors ko sync karke Qibla angle calculate kiya ja raha hai...
-              </p>
+              <QiblaCompass />
+            </motion.div>
+          )}
+
+          {(activeTab === 'bookmarks' || activeTab === 'audio') && (
+            <motion.div
+              key="placeholder"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              className="py-20 text-center space-y-4 max-w-md mx-auto"
+            >
+              <h2 className="text-xl sm:text-2xl font-bold text-earth-text capitalize">{activeTab} Module</h2>
+              <p className="text-xs sm:text-sm text-earth-muted">This module will be introduced in the upcoming development phase.</p>
               <button 
-                onClick={() => setActiveTab('home')}
-                className="px-6 py-2.5 rounded-xl bg-gold hover:bg-gold-dark text-white font-bold text-xs cursor-pointer shadow-sm transition-all"
+                onClick={() => handleTabSwitch('home')}
+                className="px-6 py-2.5 rounded-xl bg-gold text-white font-bold text-xs cursor-pointer shadow-sm"
               >
-                Back to Dashboard
+                Return to Dashboard
               </button>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Bottom Navigation Dock: Phone aur Tablet (iPad) dono par visible rahega jab tak screen 'lg' (1024px+) na ho */}
-      <nav className="lg:hidden w-full border-t border-gold/20 bg-cream/95 backdrop-blur-md py-2.5 px-4 fixed bottom-0 left-0 right-0 z-50">
-        <div className="max-w-lg mx-auto flex items-center justify-around">
+      {/* Mobile & Small Tablet Bottom Dock with Animated Indicator */}
+      <nav className="lg:hidden w-full border-t border-gold/20 bg-cream/95 backdrop-blur-md py-2 px-3 fixed bottom-0 left-0 right-0 z-50">
+        <div className="max-w-md mx-auto flex items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button 
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center gap-1 text-[11px] font-semibold cursor-pointer transition-colors ${
+                onClick={() => handleTabSwitch(item.id)}
+                className={`relative flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl text-[11px] font-semibold cursor-pointer transition-colors ${
                   isActive ? 'text-gold-dark font-bold' : 'text-earth-muted'
                 }`}
               >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
+                <Icon className="w-5 h-5 z-10" />
+                <span className="z-10">{item.label}</span>
+
+                {isActive && (
+                  <motion.div
+                    layoutId="mobileActivePill"
+                    transition={{ type: "spring", stiffness: 450, damping: 32 }}
+                    className="absolute inset-0 bg-gold/15 rounded-xl border border-gold/30 z-0"
+                  />
+                )}
               </button>
             );
           })}

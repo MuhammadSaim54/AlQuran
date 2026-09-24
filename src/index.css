@@ -33,15 +33,29 @@ body {
   overflow-x: hidden;
 }
 
-/* Widescreen Scaling: 2K / 4K monitors par typography aur layout naturally scale ho */
+/* Tablets (iPad, iPad Pro) */
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* Laptops & Standard Desktops */
+@media (min-width: 1280px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+/* Wide & 2K/4K Monitors: Cheezein naturally bari hongi lekin text clip nahi hoga */
 @media (min-width: 1800px) {
   html {
-    font-size: 18px;
+    font-size: 19px;
   }
 }
 
 @media (min-width: 2500px) {
   html {
-    font-size: 22px;
+    font-size: 21px;
   }
 }
