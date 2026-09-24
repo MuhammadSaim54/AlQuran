@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, 
@@ -10,17 +10,19 @@ import {
   Layers,
   ArrowUpRight
 } from 'lucide-react';
-import SurahList from './components/SurahList';
+import SurahList, { RECITERS_LIST } from './components/SurahList';
 import QiblaCompass from './components/QiblaCompass';
+import AudioPlayer from './components/AudioPlayer';
+import AudioLibrary from './components/AudioLibrary';
+import BookmarksView from './components/BookmarksView';
 
-// Memoized featured card component
 const FeaturedSurahCard = React.memo(function FeaturedSurahCard({ surah, onClick }) {
   return (
     <motion.div
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="p-4 sm:p-5 rounded-2xl bg-white/85 border border-gold/25 shadow-sm hover:border-gold transition-[border-color,box-shadow] cursor-pointer flex items-center justify-between gap-3 min-h-[95px] will-change-transform"
+      className="p-4 sm:p-5 rounded-2xl bg-white/85 border border-gold/25 shadow-sm hover:border-gold transition-all cursor-pointer flex items-center justify-between gap-3 min-h-[90px] w-full"
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-10 h-10 rounded-xl bg-gold/15 text-gold-dark font-extrabold flex items-center justify-center text-xs flex-shrink-0">
@@ -35,7 +37,7 @@ const FeaturedSurahCard = React.memo(function FeaturedSurahCard({ surah, onClick
           </p>
         </div>
       </div>
-      <span className="font-arabic text-xl sm:text-2xl font-bold text-earth-text flex-shrink-0 pl-2">
+      <span className="font-arabic text-lg sm:text-xl font-bold text-earth-text flex-shrink-0 pl-2">
         {surah.arabic}
       </span>
     </motion.div>
@@ -44,14 +46,65 @@ const FeaturedSurahCard = React.memo(function FeaturedSurahCard({ surah, onClick
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
+  const [surahs, setSurahs] = useState([]);
+  const [isSurahModalOpen, setIsSurahModalOpen] = useState(false);
+  
+  const [bookmarks, setBookmarks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('alquran_bookmarks');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const [isLooping, setIsLooping] = useState(false);
+  const [isAutoplay, setIsAutoplay] = useState(true);
+
+  useEffect(() => {
+    fetch('https://api.alquran.cloud/v1/surah')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.code === 200) {
+          setSurahs(data.data);
+        }
+      })
+      .catch((e) => console.error("Surahs fetch error:", e));
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('alquran_bookmarks', JSON.stringify(bookmarks));
+    } catch (e) {
+      console.error('Failed to sync bookmarks:', e);
+    }
+  }, [bookmarks]);
+
+  const toggleBookmark = useCallback((surah) => {
+    setBookmarks((prev) => {
+      const exists = prev.some((b) => b.number === surah.number);
+      if (exists) {
+        return prev.filter((b) => b.number !== surah.number);
+      } else {
+        return [...prev, surah];
+      }
+    });
+  }, []);
+
+  const removeBookmark = useCallback((surahNumber) => {
+    setBookmarks((prev) => prev.filter((b) => b.number !== surahNumber));
+  }, []);
+
+  const bookmarkedIds = useMemo(() => bookmarks.map((b) => b.number), [bookmarks]);
 
   const navItems = useMemo(() => [
     { id: 'home', label: 'Home', icon: BookOpen },
     { id: 'surah', label: 'Surahs', icon: Layers },
-    { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
+    { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark, badge: bookmarks.length || null },
     { id: 'audio', label: 'Audio', icon: Headphones },
     { id: 'compass', label: 'Qibla', icon: Compass },
-  ], []);
+  ], [bookmarks.length]);
 
   const featuredSurahs = useMemo(() => [
     { number: 1, name: "Al-Fatihah", english: "The Opening", ayahs: 7, arabic: "الفاتحة" },
@@ -64,10 +117,68 @@ export default function App() {
     setActiveTab(id);
   }, []);
 
+  const handlePlayTrack = useCallback((track) => {
+    setCurrentTrack(track);
+  }, []);
+
+  const handleChangeQari = useCallback((newReciter) => {
+    if (!currentTrack) return;
+    const newUrl = newReciter.getAudioUrl(currentTrack.surahNumber);
+    if (newUrl) {
+      setCurrentTrack({
+        ...currentTrack,
+        reciterName: newReciter.name,
+        reciterId: newReciter.id,
+        reciterImage: newReciter.photo,
+        audioUrl: newUrl
+      });
+    }
+  }, [currentTrack]);
+
+  const handleNextTrack = useCallback(() => {
+    if (!currentTrack || !surahs.length) return;
+    const currentNum = currentTrack.surahNumber;
+    const nextNum = currentNum < 114 ? currentNum + 1 : 1;
+    const nextSurah = surahs.find(s => s.number === nextNum);
+    const reciter = RECITERS_LIST.find(r => r.id === currentTrack.reciterId) || RECITERS_LIST[0];
+
+    if (nextSurah) {
+      setCurrentTrack({
+        surahNumber: nextSurah.number,
+        surahName: nextSurah.englishName,
+        arabicName: nextSurah.name,
+        reciterName: reciter.name,
+        reciterId: reciter.id,
+        reciterImage: reciter.photo,
+        audioUrl: reciter.getAudioUrl(nextSurah.number)
+      });
+    }
+  }, [currentTrack, surahs]);
+
+  const handlePrevTrack = useCallback(() => {
+    if (!currentTrack || !surahs.length) return;
+    const currentNum = currentTrack.surahNumber;
+    const prevNum = currentNum > 1 ? currentNum - 1 : 114;
+    const prevSurah = surahs.find(s => s.number === prevNum);
+    const reciter = RECITERS_LIST.find(r => r.id === currentTrack.reciterId) || RECITERS_LIST[0];
+
+    if (prevSurah) {
+      setCurrentTrack({
+        surahNumber: prevSurah.number,
+        surahName: prevSurah.englishName,
+        arabicName: prevSurah.name,
+        reciterName: reciter.name,
+        reciterId: reciter.id,
+        reciterImage: reciter.photo,
+        audioUrl: reciter.getAudioUrl(prevSurah.number)
+      });
+    }
+  }, [currentTrack, surahs]);
+
   return (
     <div className="min-h-screen bg-cream text-earth-text flex flex-col justify-between selection:bg-gold/30 antialiased overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="w-full border-b border-gold/20 backdrop-blur-md bg-cream/90 sticky top-0 z-40">
+      <header className="w-full border-b border-gold/20 backdrop-blur-md bg-cream/90 sticky top-0 z-30">
         <div className="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-10 py-3 sm:py-4 flex items-center justify-between gap-3">
           
           <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0 cursor-pointer" onClick={() => handleTabSwitch('home')}>
@@ -82,7 +193,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Desktop & Tablet Navigation with Animated Spring Indicator */}
           <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2 bg-cream-dark/60 p-1.5 rounded-2xl border border-gold/20 relative">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -97,6 +207,11 @@ export default function App() {
                 >
                   <Icon className="w-4 h-4 z-10" />
                   <span className="z-10">{item.label}</span>
+                  {item.badge ? (
+                    <span className="z-10 px-1.5 py-0.2 rounded-full text-[10px] bg-gold text-white font-mono">
+                      {item.badge}
+                    </span>
+                  ) : null}
 
                   {isActive && (
                     <motion.div
@@ -123,8 +238,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 pb-28 lg:pb-12">
+      {/* Main Viewport Container */}
+      <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10 pb-44 lg:pb-32">
         <AnimatePresence mode="wait">
           {activeTab === 'home' && (
             <motion.div
@@ -196,7 +311,7 @@ export default function App() {
                 {[
                   { title: 'Surah Index', count: '114 Surahs', icon: Layers, tab: 'surah' },
                   { title: 'Juz / Paras', count: '30 Parts', icon: BookOpen, tab: 'surah' },
-                  { title: 'Saved Bookmarks', count: 'Saved Verses', icon: Bookmark, tab: 'bookmarks' },
+                  { title: 'Saved Bookmarks', count: `${bookmarks.length} Verses`, icon: Bookmark, tab: 'bookmarks' },
                   { title: 'Tilawat Reciters', count: 'Audio Library', icon: Headphones, tab: 'audio' },
                 ].map((item) => {
                   const ItemIcon = item.icon;
@@ -206,7 +321,7 @@ export default function App() {
                       whileHover={{ y: -4, scale: 1.01 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleTabSwitch(item.tab)}
-                      className="p-5 sm:p-6 rounded-2xl bg-white/80 border border-gold/25 shadow-sm hover:shadow-md hover:border-gold transition-[border-color,box-shadow] cursor-pointer flex flex-col justify-between min-h-[120px] sm:min-h-[145px] will-change-transform"
+                      className="p-5 sm:p-6 rounded-2xl bg-white/80 border border-gold/25 shadow-sm hover:shadow-md hover:border-gold transition-all cursor-pointer flex flex-col justify-between min-h-[120px] sm:min-h-[145px]"
                     >
                       <div className="w-10 h-10 xl:w-12 xl:h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold-dark mb-3">
                         <ItemIcon className="w-5 h-5 xl:w-6 xl:h-6" />
@@ -261,7 +376,12 @@ export default function App() {
                 <h2 className="text-xl sm:text-3xl font-extrabold text-earth-text">Surah Index</h2>
                 <span className="text-xs sm:text-sm font-semibold text-earth-muted font-mono">114 Chapters</span>
               </div>
-              <SurahList />
+              <SurahList 
+                bookmarkedIds={bookmarkedIds}
+                onToggleBookmark={toggleBookmark}
+                onPlayTrack={handlePlayTrack}
+                onModalStateChange={(isOpen) => setIsSurahModalOpen(isOpen)}
+              />
             </motion.div>
           )}
 
@@ -277,29 +397,55 @@ export default function App() {
             </motion.div>
           )}
 
-          {(activeTab === 'bookmarks' || activeTab === 'audio') && (
+          {activeTab === 'bookmarks' && (
             <motion.div
-              key="placeholder"
+              key="bookmarks"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              className="py-20 text-center space-y-4 max-w-md mx-auto"
+              transition={{ duration: 0.28, ease: "easeOut" }}
             >
-              <h2 className="text-xl sm:text-2xl font-bold text-earth-text capitalize">{activeTab} Module</h2>
-              <p className="text-xs sm:text-sm text-earth-muted">This module will be introduced in the upcoming development phase.</p>
-              <button 
-                onClick={() => handleTabSwitch('home')}
-                className="px-6 py-2.5 rounded-xl bg-gold text-white font-bold text-xs cursor-pointer shadow-sm"
-              >
-                Return to Dashboard
-              </button>
+              <BookmarksView 
+                bookmarks={bookmarks}
+                onRemoveBookmark={removeBookmark}
+                onNavigateToSurah={() => handleTabSwitch('surah')}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'audio' && (
+            <motion.div
+              key="audio"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+            >
+              <AudioLibrary 
+                surahs={surahs}
+                onPlayRecitation={(track) => setCurrentTrack(track)} 
+              />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Mobile & Small Tablet Bottom Dock with Animated Indicator */}
-      <nav className="lg:hidden w-full border-t border-gold/20 bg-cream/95 backdrop-blur-md py-2 px-3 fixed bottom-0 left-0 right-0 z-50">
+      {/* Persistent Global Floating Audio Player with Modal Collapsing State */}
+      <AudioPlayer 
+        currentTrack={currentTrack}
+        onClose={() => setCurrentTrack(null)}
+        onNext={handleNextTrack}
+        onPrev={handlePrevTrack}
+        isLooping={isLooping}
+        setIsLooping={setIsLooping}
+        isAutoplay={isAutoplay}
+        setIsAutoplay={setIsAutoplay}
+        onChangeQari={handleChangeQari}
+        isModalOpen={isSurahModalOpen}
+      />
+
+      {/* Mobile Bottom Dock */}
+      <nav className="lg:hidden w-full border-t border-gold/20 bg-cream/95 backdrop-blur-md py-2 px-3 fixed bottom-0 left-0 right-0 z-30">
         <div className="max-w-md mx-auto flex items-center justify-around">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -308,7 +454,7 @@ export default function App() {
               <button 
                 key={item.id}
                 onClick={() => handleTabSwitch(item.id)}
-                className={`relative flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl text-[11px] font-semibold cursor-pointer transition-colors ${
+                className={`relative flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl text-[10px] font-semibold cursor-pointer transition-colors ${
                   isActive ? 'text-gold-dark font-bold' : 'text-earth-muted'
                 }`}
               >
