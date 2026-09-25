@@ -59,3 +59,57 @@ body {
     font-size: 21px;
   }
 }
+
+/* ========================================================
+   PREMIUM ISLAMIC GOLDEN SCROLLBAR (GLOBAL & LOCAL)
+======================================================== */
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(197, 160, 89, 0.28);
+  border-radius: 9999px;
+  transition: all 0.25s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 160, 89, 0.75);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(197, 160, 89, 0.35) transparent;
+}
+
+/* Specific Luxury Class for Tajweed & Mushaf Containers */
+.mushaf-pro-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(197, 160, 89, 0.45) transparent;
+}
+
+.mushaf-pro-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.mushaf-pro-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0;
+}
+
+.mushaf-pro-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(197, 160, 89, 0.25), rgba(197, 160, 89, 0.55), rgba(197, 160, 89, 0.25));
+  border-radius: 9999px;
+}
+
+.mushaf-pro-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(197, 160, 89, 0.6), rgba(197, 160, 89, 0.95), rgba(197, 160, 89, 0.6));
+}

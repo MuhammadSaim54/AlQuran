@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, Bookmark, Play, BookOpen, Headphones, X } from 'lucide-react';
+import { Search, Loader2, Bookmark, Play, Headphones, X, FileText, Book } from 'lucide-react';
+
+import SurahReader from './SurahReader';
+import MushafViewer from './MushafViewer';
 
 import noreenImg from '../assets/images/noreen.jpg';
 import sudaisImg from '../assets/images/sudais.jpg';
@@ -24,7 +27,6 @@ export const RECITERS_LIST = [
     name: 'Abdul Rahman Al-Sudais',
     sub: 'Chief Imam of Masjid Al-Haram, Makkah',
     photo: sudaisImg,
-    // 100% Verified Direct High-Speed Stream for Sheikh Sudais
     getAudioUrl: (num) => {
       const padded = num.toString().padStart(3, '0');
       return `https://server11.mp3quran.net/sds/${padded}.mp3`;
@@ -130,7 +132,7 @@ function SurahListComponent({
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedSurah, setSelectedSurah] = useState(null);
-  const [dialogView, setDialogView] = useState('options');
+  const [activeView, setActiveView] = useState('options'); // 'options' | 'reciters' | 'ayahReader' | 'mushafViewer'
 
   useEffect(() => {
     let isMounted = true;
@@ -168,12 +170,13 @@ function SurahListComponent({
 
   const openSurahAction = useCallback((surah) => {
     setSelectedSurah(surah);
-    setDialogView('options');
+    setActiveView('options');
     if (onModalStateChange) onModalStateChange(true);
   }, [onModalStateChange]);
 
   const closeSurahAction = useCallback(() => {
     setSelectedSurah(null);
+    setActiveView('options');
     if (onModalStateChange) onModalStateChange(false);
   }, [onModalStateChange]);
 
@@ -195,41 +198,93 @@ function SurahListComponent({
     closeSurahAction();
   }, [selectedSurah, onPlayTrack, closeSurahAction]);
 
+  const isReaderOpen = selectedSurah && (activeView === 'ayahReader' || activeView === 'mushafViewer');
+
   return (
     <div className="space-y-4 sm:space-y-6 w-full max-w-full">
-      <div className="relative w-full">
-        <Search className="w-5 h-5 text-earth-muted absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={handleSearchChange}
-          placeholder="Search by Surah name, number, or translation..."
-          className="w-full pl-12 sm:pl-14 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl bg-white/90 border border-gold/30 text-xs sm:text-base text-earth-text placeholder-earth-muted/70 outline-none focus:border-gold focus:ring-4 focus:ring-gold/10 shadow-sm transition-all"
-        />
-      </div>
+      {/* Top Header: Sirf Reader Open hone par Surah Detail Header dikhaye, List mode mein parent heading kaafi hai */}
+      {isReaderOpen && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gold/20 pb-3 sm:pb-4 w-full">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <span className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gold/15 text-gold-dark font-extrabold flex items-center justify-center text-xs sm:text-base font-mono flex-shrink-0 shadow-2xs">
+              {selectedSurah.number}
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <h2 className="text-lg sm:text-2xl font-black text-earth-text tracking-tight">
+                  {selectedSurah.englishName}
+                </h2>
+                <span className="font-arabic text-base sm:text-xl text-gold-dark font-bold leading-normal">
+                  ({selectedSurah.name})
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-earth-muted">
+                {selectedSurah.englishNameTranslation}
+              </p>
+            </div>
+          </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gold-dark gap-3">
-          <Loader2 className="w-8 h-8 animate-spin" />
-          <p className="text-sm font-semibold text-earth-muted">Loading Surah Directory...</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
-          {filteredSurahs.map((surah) => (
-            <SurahCard
-              key={surah.number}
-              surah={surah}
-              onCardClick={openSurahAction}
-              isBookmarked={bookmarkedIds.includes(surah.number)}
-              onToggleBookmark={onToggleBookmark}
-            />
-          ))}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="px-3 py-1 rounded-full bg-gold/15 text-gold-dark text-[10px] sm:text-xs font-bold uppercase tracking-wider font-mono border border-gold/30">
+              {selectedSurah.revelationType === 'Meccan' ? 'MAKKIYAH' : 'MADANIYAH'}
+            </span>
+            <span className="text-xs text-earth-muted font-mono hidden sm:inline">
+              • {selectedSurah.numberOfAyahs} Ayahs
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Surah Action Selection Modal */}
+      {/* Render Mode 1: Ayah by Ayah Reader */}
+      {selectedSurah && activeView === 'ayahReader' ? (
+        <SurahReader
+          surahNumber={selectedSurah.number}
+          onBack={closeSurahAction}
+        />
+      ) : selectedSurah && activeView === 'mushafViewer' ? (
+        /* Render Mode 2: Classic Mushaf Viewer */
+        <MushafViewer
+          surahNumber={selectedSurah.number}
+          onBack={closeSurahAction}
+        />
+      ) : (
+        /* Default: Directory List */
+        <>
+          <div className="relative w-full">
+            <Search className="w-5 h-5 text-earth-muted absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search by Surah name, number, or translation..."
+              className="w-full pl-12 sm:pl-14 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl bg-white/90 border border-gold/30 text-xs sm:text-base text-earth-text placeholder-earth-muted/70 outline-none focus:border-gold focus:ring-4 focus:ring-gold/10 shadow-sm transition-all"
+            />
+          </div>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gold-dark gap-3">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <p className="text-sm font-semibold text-earth-muted">Loading Surah Directory...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
+              {filteredSurahs.map((surah) => (
+                <SurahCard
+                  key={surah.number}
+                  surah={surah}
+                  onCardClick={openSurahAction}
+                  isBookmarked={bookmarkedIds.includes(surah.number)}
+                  onToggleBookmark={onToggleBookmark}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Mode Selection Dialog */}
       <AnimatePresence>
-        {selectedSurah && (
+        {selectedSurah && activeView === 'options' && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -246,7 +301,7 @@ function SurahListComponent({
 
               <div className="text-center space-y-1">
                 <span className="text-[10px] font-mono uppercase tracking-widest text-gold-dark font-bold">
-                  Surah {selectedSurah.number} • {selectedSurah.revelationType}
+                  Surah {selectedSurah.number} • {selectedSurah.revelationType === 'Meccan' ? 'Makkiyah' : 'Madaniyah'}
                 </span>
                 <h3 className="text-xl sm:text-2xl font-black text-earth-text">{selectedSurah.englishName}</h3>
                 <p className="font-arabic text-lg sm:text-xl font-bold text-gold-dark">{selectedSurah.name}</p>
@@ -255,99 +310,95 @@ function SurahListComponent({
                 </p>
               </div>
 
-              {dialogView === 'options' && (
-                <div className="grid grid-cols-2 gap-3.5 pt-1">
+              <div className="space-y-4 pt-1">
+                <div className="p-3.5 rounded-2xl bg-white border border-gold/20 space-y-1.5 text-xs text-earth-text text-left">
+                  <p><strong>English Meaning:</strong> {selectedSurah.englishNameTranslation}</p>
+                  <p><strong>Total Verses:</strong> {selectedSurah.numberOfAyahs} Ayahs</p>
+                  <p><strong>Classification:</strong> {selectedSurah.revelationType === 'Meccan' ? 'Makkiyah' : 'Madaniyah'}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => setDialogView('reading')}
-                    className="p-4 rounded-2xl bg-white border border-gold/30 hover:border-gold hover:shadow-md transition-all flex flex-col items-center gap-2.5 text-center cursor-pointer group"
+                    onClick={() => setActiveView('ayahReader')}
+                    className="p-3.5 rounded-2xl bg-white border border-gold/30 hover:border-gold hover:shadow-md transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
                   >
-                    <div className="w-11 h-11 rounded-xl bg-gold/15 group-hover:bg-gold group-hover:text-white text-gold-dark flex items-center justify-center transition-colors">
-                      <BookOpen className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-xl bg-gold/15 group-hover:bg-gold group-hover:text-white text-gold-dark flex items-center justify-center transition-colors">
+                      <FileText className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-xs sm:text-sm font-bold block text-earth-text">Read Surah</span>
-                      <span className="text-[10px] text-earth-muted block mt-0.5">Verses & Translation</span>
+                      <span className="text-xs sm:text-sm font-bold block text-earth-text">Verses & Translation</span>
+                      <span className="text-[9px] text-earth-muted block mt-0.5">Ayah-by-Ayah</span>
                     </div>
                   </button>
 
                   <button
-                    onClick={() => setDialogView('reciters')}
-                    className="p-4 rounded-2xl bg-gold text-white hover:bg-gold-dark shadow-md shadow-gold/20 transition-all flex flex-col items-center gap-2.5 text-center cursor-pointer group"
+                    onClick={() => setActiveView('mushafViewer')}
+                    className="p-3.5 rounded-2xl bg-white border border-gold/30 hover:border-gold hover:shadow-md transition-all flex flex-col items-center gap-2 text-center cursor-pointer group"
                   >
-                    <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center transition-colors">
-                      <Headphones className="w-5 h-5 fill-white" />
+                    <div className="w-10 h-10 rounded-xl bg-gold/15 group-hover:bg-gold group-hover:text-white text-gold-dark flex items-center justify-center transition-colors">
+                      <Book className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-xs sm:text-sm font-bold block">Listen Recitation</span>
-                      <span className="text-[10px] text-white/80 block mt-0.5">Select Qari</span>
+                      <span className="text-xs sm:text-sm font-bold block text-earth-text">Classic Mushaf</span>
+                      <span className="text-[9px] text-earth-muted block mt-0.5">16-Line Original Page</span>
                     </div>
                   </button>
                 </div>
-              )}
 
-              {dialogView === 'reciters' && (
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-earth-muted">Select Qari:</span>
-                    <button 
-                      onClick={() => setDialogView('options')}
-                      className="text-xs text-gold-dark font-bold hover:underline cursor-pointer"
-                    >
-                      Back
-                    </button>
-                  </div>
+                <button
+                  onClick={() => setActiveView('reciters')}
+                  className="w-full py-3 rounded-2xl bg-gold hover:bg-gold-dark text-white font-bold text-xs sm:text-sm shadow-md shadow-gold/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Headphones className="w-4 h-4 fill-white" /> Listen Audio Recitation
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
-                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                    {RECITERS_LIST.map((reciter) => (
-                      <button
-                        key={reciter.id}
-                        onClick={() => handleSelectReciter(reciter)}
-                        className="w-full p-2.5 sm:p-3 rounded-2xl bg-white/90 border border-gold/25 hover:border-gold hover:bg-gold/10 transition-all text-left flex items-center justify-between group cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <img 
-                            src={reciter.photo} 
-                            alt={reciter.name} 
-                            className="w-10 h-10 rounded-xl object-cover border border-gold/30 flex-shrink-0" 
-                          />
-                          <div className="min-w-0">
-                            <h5 className="font-bold text-xs sm:text-sm text-earth-text truncate">{reciter.name}</h5>
-                            <p className="text-[10px] text-earth-muted truncate">{reciter.sub}</p>
-                          </div>
-                        </div>
-                        <div className="w-8 h-8 rounded-xl bg-gold/15 text-gold-dark group-hover:bg-gold group-hover:text-white flex items-center justify-center transition-colors flex-shrink-0">
-                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* Reciters List Modal */}
+        {selectedSurah && activeView === 'reciters' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-cream-light border border-gold/40 shadow-2xl rounded-3xl p-6 sm:p-7 max-w-md w-full relative space-y-4 text-earth-text"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-earth-muted">Select Qari:</span>
+                <button 
+                  onClick={() => setActiveView('options')}
+                  className="text-xs text-gold-dark font-bold hover:underline cursor-pointer"
+                >
+                  Back
+                </button>
+              </div>
 
-              {dialogView === 'reading' && (
-                <div className="space-y-3 pt-1 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-earth-muted">Chapter Overview:</span>
-                    <button 
-                      onClick={() => setDialogView('options')}
-                      className="text-xs text-gold-dark font-bold hover:underline cursor-pointer"
-                    >
-                      Back
-                    </button>
-                  </div>
-                  <div className="p-3.5 rounded-2xl bg-white border border-gold/20 space-y-2 text-xs leading-relaxed text-earth-text">
-                    <p><strong>English Translation:</strong> {selectedSurah.englishNameTranslation}</p>
-                    <p><strong>Total Verses:</strong> {selectedSurah.numberOfAyahs} Ayahs</p>
-                    <p><strong>Classification:</strong> {selectedSurah.revelationType} Revelation</p>
-                  </div>
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                {RECITERS_LIST.map((reciter) => (
                   <button
-                    onClick={() => setDialogView('reciters')}
-                    className="w-full py-2.5 rounded-2xl bg-gold hover:bg-gold-dark text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    key={reciter.id}
+                    onClick={() => handleSelectReciter(reciter)}
+                    className="w-full p-2.5 sm:p-3 rounded-2xl bg-white/90 border border-gold/25 hover:border-gold hover:bg-gold/10 transition-all text-left flex items-center justify-between group cursor-pointer"
                   >
-                    <Headphones className="w-4 h-4" /> Listen Audio for {selectedSurah.englishName}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img 
+                        src={reciter.photo} 
+                        alt={reciter.name} 
+                        className="w-10 h-10 rounded-xl object-cover border border-gold/30 flex-shrink-0" 
+                      />
+                      <div className="min-w-0">
+                        <h5 className="font-bold text-xs sm:text-sm text-earth-text truncate">{reciter.name}</h5>
+                        <p className="text-[10px] text-earth-muted truncate">{reciter.sub}</p>
+                      </div>
+                    </div>
+                    <div className="w-8 h-8 rounded-xl bg-gold/15 text-gold-dark group-hover:bg-gold group-hover:text-white flex items-center justify-center transition-colors flex-shrink-0">
+                      <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                    </div>
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
             </motion.div>
           </div>
         )}
