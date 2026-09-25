@@ -79,12 +79,41 @@ export default function App() {
     return localStorage.getItem('alquran_has_onboarded') === 'true';
   });
 
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'surahs' | 'juz' | 'tajweed' | 'audio' | 'bookmarks' | 'qibla'
+  const [activeTab, setActiveTab] = useState('home');
   const [copiedAyat, setCopiedAyat] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
   const [targetResumePage, setTargetResumePage] = useState(null);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  // Audio Playback Controls States
+  const [isLooping, setIsLooping] = useState(false);
+  const [isAutoplay, setIsAutoplay] = useState(false);
+  const [surahsList, setSurahsList] = useState([]);
+
+  // Fetch full surah list for Audio Library dropdown
+  useEffect(() => {
+    fetch('https://api.alquran.cloud/v1/surah')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.data) {
+          setSurahsList(data.data);
+        }
+      })
+      .catch(() => {
+        // Fallback for offline/first render
+        const fallback = Array.from({ length: 114 }, (_, i) => {
+          const info = getSurahInfoByPage(i + 1);
+          return {
+            number: i + 1,
+            englishName: info.name || `Surah ${i + 1}`,
+            name: info.ar || 'سورة',
+            englishNameTranslation: ''
+          };
+        });
+        setSurahsList(fallback);
+      });
+  }, []);
 
   useEffect(() => {
     const handleBeforeInstall = (e) => {
@@ -178,6 +207,62 @@ export default function App() {
     setCurrentTrack(null);
   }, []);
 
+  // Instant Qari Switch Handler
+  const handleChangeQari = useCallback((newReciter) => {
+    if (!currentTrack) return;
+    const sNum = currentTrack.surahNumber || 1;
+    const audioUrl = typeof newReciter.getAudioUrl === 'function'
+      ? newReciter.getAudioUrl(sNum)
+      : `https://server${newReciter.server || '6'}.mp3quran.net/${newReciter.subfolder || newReciter.id}/${String(sNum).padStart(3, '0')}.mp3`;
+
+    setCurrentTrack(prev => ({
+      ...prev,
+      reciterId: newReciter.id,
+      reciterName: newReciter.name,
+      reciterImage: newReciter.photo,
+      audioUrl: audioUrl
+    }));
+  }, [currentTrack]);
+
+  // Next / Prev Surah Navigation Handlers for Player
+  const handleNextTrack = useCallback(() => {
+    if (!currentTrack) return;
+    const currentNum = currentTrack.surahNumber || 1;
+    if (currentNum >= 114) return;
+    const nextNum = currentNum + 1;
+    const reciter = RECITERS_LIST.find(r => r.id === currentTrack.reciterId) || RECITERS_LIST[0];
+    const surahInfo = surahsList.find(s => s.number === nextNum);
+
+    setCurrentTrack({
+      surahNumber: nextNum,
+      surahName: surahInfo?.englishName || `Surah ${nextNum}`,
+      arabicName: surahInfo?.name || '',
+      reciterName: reciter.name,
+      reciterId: reciter.id,
+      reciterImage: reciter.photo,
+      audioUrl: reciter.getAudioUrl(nextNum)
+    });
+  }, [currentTrack, surahsList]);
+
+  const handlePrevTrack = useCallback(() => {
+    if (!currentTrack) return;
+    const currentNum = currentTrack.surahNumber || 1;
+    if (currentNum <= 1) return;
+    const prevNum = currentNum - 1;
+    const reciter = RECITERS_LIST.find(r => r.id === currentTrack.reciterId) || RECITERS_LIST[0];
+    const surahInfo = surahsList.find(s => s.number === prevNum);
+
+    setCurrentTrack({
+      surahNumber: prevNum,
+      surahName: surahInfo?.englishName || `Surah ${prevNum}`,
+      arabicName: surahInfo?.name || '',
+      reciterName: reciter.name,
+      reciterId: reciter.id,
+      reciterImage: reciter.photo,
+      audioUrl: reciter.getAudioUrl(prevNum)
+    });
+  }, [currentTrack, surahsList]);
+
   const handleShareAyat = () => {
     const text = `"${todayAyat.arabic}"\n${todayAyat.translation} - [Surah ${todayAyat.surah} ${todayAyat.ayahRef}]`;
     navigator.clipboard.writeText(text);
@@ -205,7 +290,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#2C2416] flex flex-col font-sans selection:bg-[#C5A059]/20 selection:text-[#9E7D3B]">
       
-      {/* Top Navbar: Clean 4 Tabs - No Squeeze on 768px */}
+      {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFC8]/70 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           
@@ -227,7 +312,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Clean 4 Desktop/Tablet Tabs */}
+          {/* Desktop/Tablet Navigation Tabs */}
           <nav className="hidden md:flex items-center gap-1.5 bg-[#F2ECE1]/80 p-1.5 rounded-2xl border border-[#E4D9C5] flex-shrink-0">
             <button
               onClick={() => setActiveTab('home')}
@@ -360,7 +445,7 @@ export default function App() {
                   Immerse yourself in authentic 16-Line Indo-Pak Mushaf folios, crystal-clear studio audio recitations by world-renowned Qaris, and seamless chapter navigation.
                 </p>
 
-                {/* Hero Action Buttons - Responsive Row / Grid (Image 2 Fix) */}
+                {/* Hero Action Buttons */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-2 max-w-xl">
                   <button 
                     onClick={() => setActiveTab('surahs')}
@@ -387,7 +472,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* FULLY RESPONSIVE LAST READ CARD (Image 3 Fix: No Cuts) */}
+            {/* FULLY RESPONSIVE LAST READ CARD */}
             <div className="w-full overflow-hidden rounded-3xl bg-gradient-to-r from-[#211A12] via-[#2A2218] to-[#1C160F] border border-[#C5A059]/40 p-4 sm:p-6 shadow-md text-[#FAF7F2]">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 
@@ -647,7 +732,8 @@ export default function App() {
         {/* TAB 5: AUDIO LIBRARY */}
         {activeTab === 'audio' && (
           <AudioLibrary 
-            onPlayTrack={handlePlayTrack}
+            onPlayRecitation={handlePlayTrack}
+            surahs={surahsList}
             currentTrack={currentTrack}
           />
         )}
@@ -680,12 +766,18 @@ export default function App() {
         }}
       />
 
-      {/* Dedicated AudioPlayer Component */}
+      {/* Floating Persistent AudioPlayer Dock */}
       {currentTrack && (
         <AudioPlayer
-          track={currentTrack}
           currentTrack={currentTrack}
           onClose={handleCloseAudio}
+          onNext={handleNextTrack}
+          onPrev={handlePrevTrack}
+          isLooping={isLooping}
+          setIsLooping={setIsLooping}
+          isAutoplay={isAutoplay}
+          setIsAutoplay={setIsAutoplay}
+          onChangeQari={handleChangeQari}
         />
       )}
 
